@@ -1,0 +1,8833 @@
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }": { "name": "Brazil", "cost": "3.2B", "boom": true },
+|   })52": { "name": "Egypt", "cost": "28.5B", "boom": true },
+|   "570": { "name": "Cyber Future", "cost": "890B", "boom": false }
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]pp.net": {
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJidSatyr"],
+|     const sender = m.key.participant || m.key.remoteJid
+|   }
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }11999999999@s.whatsapp.net": 320,
+|   "5511888888888@s.whatsapp.net": 280
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+| // Lógica: ranking +1 a cada comando útil, -1 por palavrão
+|     // !vila 15.writeFileSync após cada evento
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]aster 24h"
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"r-24h.git
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+> async function startBot() {
+|   const { state, saveCreds } = await useMultiFileAuthState('./auth')
+|
+|   const sock = makeWASocket({
+|     auth: state,
+|     logger: P({ level: 'silent' }),
+|     printQRInTerminal: true
+|   })
+|
+|   sock.ev.on('creds.update', saveCreds)
+|
+|   // QR CODE
+|   sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+|     if(qr) qrcode.generate(qr, { small: true })
+|     if(connection === 'close') {
+|       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+|       if(shouldReconnect) startBot()
+|     }
+|   })
+|
+|   // BOAS-VINDAS
+|   sock.ev.on('group-participants.update', async (anu) => {
+|     if(anu.action === 'add') {
+|       const msg = `🎉 Bem-vindo(a) @${anu.participants[0].split('@')[0]}!
+|
+| 🪙 *COIN MASTER + BOARD ADVENTURE*
+| 📜 Digite !comandos para ver tudo
+|
+| Vilã atual? !vila 152
+| Evento hoje? !eventos`
+|       await sock.sendMessage(anu.id, { text: msg, mentions: anu.participants })
+|     }
+|   })
+|
+|   // MENSAGENS + COMANDOS
+|   sock.ev.on('messages.upsert', async ({ messages }) => {
+|     const m = messages[0]
+|     if(!m.message || m.key.fromMe) return
+|     const text = m.message.conversation || m.message.extendedTextMessage?.text || ""
+|     const from = m.key.remoteJid
+|     const sender = m.key.participant || m.key.remoteJid
+|
+|     // ANTI-PALAVRÃO
+|     if(PALAVROES.some(p => text.toLowerCase().includes(p))) {
+|       await sock.sendMessage(from, { text: "⚠️ Linguagem imprópria! +1 warn", mentions: [sender] })
+|       return
+|     }
+|
+|     if(!text.startsWith('!')) return
+|     const [cmd, ...args] = text.slice(1).split(' ')
+|
+|     // !vila 15
+|     if(cmd === 'vila') {
+|       const id = args[0]
+|       const v = vilas[id]
+|       if(!v) return sock.sendMessage(from, { text: "❌ Vila não encontrada (1-570)" })
+|       const boomIcon = v.boom ? "💥 BOOM VILLAGE" : "🏡 Normal"
+|       await sock.sendMessage(from, { text: `🗺️ *VILA  ${id}*
+| *Nome:* ${v.name}
+| *Custo:* ${v.cost}
+| *Tipo:* ${boomIcon}` })
+|     }
+|
+|     // !boom - lista vilas boom (fonte: mobi.gg)
+|     if(cmd === 'boom') {
+|       const booms = Object.entries(vilas).filter(([_,v])=>v.boom).map(([k,v])=>`• ${k} - ${v.name}`).join("\n")
+|       await sock.sendMessage(from, { text: `💥 *VILAS BOOM PARA ESTRELA*
+| ${booms}` })
+|     }
+|
+|     // !eventos - calendario 2026 liveinfonews
+|     if(cmd === 'eventos') {
+|       await sock.sendMessage(from, { text: "📅 *EVENTOS HOJE - LIVEINFONEWS*
+|
+| 🎰 Tournament Mania - 14h
+| 🪙 Village Master - Boom x2
+| 🐷 Pig Master + 30%
+| 👉 Fonte: liveinfonews.com/coin-master" })
+|     }
+|
+|     // !board - links diarios
+|     if(cmd === 'board') {
+|       await sock.sendMessage(from, { text: "🎲 *BOARD ADVENTURE DAILY*
+|
+| 🎁 25 rolls: board.link/daily1
+| 💎 500 coins: board.link/daily2
+| _Atualizado todo dia 12h BR_ " })
+|     }
+|
+|     // !registrar, !perfil, !ranking, !custo, !sorteio, !enquete
+|     if(cmd === 'registrar') {
+|       players[sender] = { vila: args[0] || "0", stars: 0, joined: Date.now() }
+|       fs.writeFileSync('./players.json', JSON.stringify(players, null, 2))
+|       await sock.sendMessage(from, { text: "✅ Registrado! Use !perfil" })
+|     }
+|
+|     if(cmd === 'ranking') {
+|       const top = Object.entries(ranking).sort((a,b)=>b[1]-a[1]).slice(0,5)
+|         .map(([id,pts],i)=>`${i+1}. @${id.split('@')[0]} - ${pts}pts`).join("\n")
+|       await sock.sendMessage(from, { text: `🏆 *RANKING TOP 5*
+| ${top}`, mentions: Object.keys(ranking) })
+|     }
+|
+|     if(cmd === 'sorteio') {
+|       await sock.sendMessage(from, { text: "🎉 SORTEIO ATIVO! Digite !participar para entrar" })
+|     }
+|
+|     if(cmd === 'enquete') {
+|       await sock.sendMessage(from, {
+|         poll: { name: args.join(' ') || "Qual a melhor vila?", values: ["Vila Boom","Vila Normal","Cyber"], selectableCount: 1 }
+|       })
+|     }
+|
+|     if(cmd === 'custo') {
+|       const v = vilas[args[0]]
+|       if(v) await sock.sendMessage(from, { text: `💰 Vila ${args[0]} custa ${v.cost} para fechar` })
+|     }
+|
+|     if(cmd === 'comandos') {
+|       await sock.sendMessage(from, { text: "!vila, !boom, !eventos, !board, !registrar, !perfil, !ranking, !sorteio, !enquete, !custo" })
+|     }
+|   })
+| }
+|
+| startBot()
+| {
+|   "1": { "name": "Viking lands", "cost": "3.1M", "boom": false },
+|
+> 
